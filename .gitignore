@@ -1,0 +1,8 @@
+/venv/
+/extracted features/
+/features
+/figures
+/ipynb_checkpoints/
+/.idea/
+/__pycache__/
+all_chans_ERP.csv
