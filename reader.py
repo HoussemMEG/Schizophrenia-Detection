@@ -249,7 +249,8 @@ class Reader:
         # data shape should be: (n_epochs, n_channels, n_times)
         origin = 1536
         n_point = data.shape[1]
-        event_id = {'1': 1, '2': 2, '3': 3}
+
+        event_id = dict(zip(stim_types, [int(x) for x in stim_types]))
         events = np.array([[origin + n_point * i, 0, stim] for i, stim in enumerate(stim_types)], dtype=int)
 
         # Info object creation

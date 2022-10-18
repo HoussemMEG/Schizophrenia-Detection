@@ -350,3 +350,4 @@ def features(x: np.ndarray, function, **kwargs):
     for i in range(len(x)):
         res[i] = function(x[i, :], **kwargs)
     return np.array(res)
+

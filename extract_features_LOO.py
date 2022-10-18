@@ -7,11 +7,11 @@ import json
 import pandas as pd
 import numpy as np
 from utils import print_c, execution_time, decompress
-# from tqdm.notebook import tqdm
 from tqdm import tqdm
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
 from scipy.stats import kurtosis, skew
 from tabulate import tabulate
+from sklearn.model_selection import StratifiedKFold
 import matplotlib.pyplot as plt
 from sklearn.svm import SVC
 
@@ -19,27 +19,15 @@ path = r"./features"
 param_files = ['DFG_parameters.json', 'preprocessing_parameters.json']
 
 # parameters
-use_x0 = False
 read_only = True
-do_validation = False
-do_test = False and do_validation #####
+k_feat = 1
+k_chan = 1
+highlight_above = 70
 
-select_stim = [None,
-               [1],
-               [2],
-               [3]][2]
-select_channel = [None,
-                  [['FCz']]][-1]
-
-select_feature = [None,
-                  [['mean', 'var']]][-1]
-# ['energy' 'count_non_zero' 'mean' 'max' 'min' 'pk-pk' 'argmin' 'argmax' 'argmax-argmin' 'sum abs' 'var' 'std'
-#  'kurtosis' 'skew' 'max abs' 'argmax abs' 'count above val' 'count below val' 'count in range' 'count out range'
-#  'count above mean' 'count below mean']
-
-k_feat = 2 if select_feature is None else len(select_feature[0])
-k_chan = 1 if select_channel is None else len(select_channel[0])
-highlight_above = 0.75
+# selection
+select_stim = [None, [1], [2], [3]][0]
+select_channel = [None, [['FCz']]][0]
+select_feature = [None, [['mean', 'var']], [['mean']]][0]
 
 session = ['2022-09-30 00;35',  # 0
            '2022-10-09 23;15',  # 1
@@ -49,21 +37,27 @@ session = ['2022-09-30 00;35',  # 0
            '2022-10-14 14;50',  # 5
            '2022-10-15 12;55',  # 6
            '2022-10-16 01;34',  # 7
-           '2022-10-16 23;01',  # 8 version of dataset1 that is focused around 0.15
-           '2022-10-16 23;05',  # 9 version of dataset 8 that has more pars
-           ][8]
+           '2022-10-17 10;24',  # 8
+           '2022-10-18 23;54',  # 9
+           # '2022-10-16 23;01',# 10 version of dataset1 that is focused around 0.15
+           # '2022-10-16 23;05',# 11 version of dataset 8 that has more pars
+           ][6]
+print_c('\nSessions: {:}'.format(session.split('\\')[-1]), 'blue', bold=True)
 
 never_use_SZ = [42, 38, 41, 37, 34, 54, 72, 53, 43, 76, 39, 57, 31, 25, 48]  # category: 1  / 5
 never_use_CTL = [65, 1, 14, 17, 23, 21, 12, 16, 22]  # category: 0  / 3
 never_use = never_use_SZ + never_use_CTL
-never_use = [1]
+never_use = []
 
-print_c('\nSessions: {:}'.format(session.split('\\')[-1]), 'blue', bold=True)
+k_feat = k_feat if select_feature is None else len(select_feature[0])
+k_chan = k_chan if select_channel is None else len(select_channel[0])
 
 
 def argmax(lst):
     return lst.index(max(lst))
 
+def mean(lst):
+    return sum(lst) / len(lst)
 
 def read_param(session, param_files):
     # Reading the JSON files
@@ -95,7 +89,7 @@ def read_param(session, param_files):
     print(' Model frequencies: {:}'.format(model_freq))
     print(' N_freq = {:}'.format(n_freq))
     print_c(' N_point = ', highlight=n_point)
-    print(' Parsimony: {:}'.format(np.array(pars)))
+    print(' Parsimony: {:}\n'.format(np.array(pars)))
     return param
 
 
@@ -181,8 +175,8 @@ def feature_extraction(x):
            'std': np.std(x, axis=1),
            'kurtosis': kurtosis(x, axis=1),
            'skew': skew(x, axis=1),
-           'max abs': np.max(np.abs(x), axis=1),
-           'argmax abs': np.argmax(np.abs(x), axis=1),
+           # 'max abs': np.max(np.abs(x), axis=1),
+           # 'argmax abs': np.argmax(np.abs(x), axis=1),
            # 'count above val': np.array([np.count_nonzero(row[np.where(row >= 0.05)]) for row in x]),
            # 'count below val': np.array([np.count_nonzero(row[np.where(row <= -0.05)]) for row in x]),
            # 'count in range': np.array([np.count_nonzero(row[np.where((row <= 0.5) & (row >= -0.5))]) for row in x]),
@@ -207,26 +201,22 @@ parsimony = np.array(param['selection'] if param['selection'] is not None else p
 
 if read_only:
     try:
-        if use_x0:
-            data_df = pd.read_csv(os.path.join(os.getcwd(), 'extracted features', session + '-x_0.csv'), index_col=[0])
-        else:
-            data_df = pd.read_csv(os.path.join(os.getcwd(), 'extracted features', session + '.csv'), index_col=[0])
+        data_df = pd.read_csv(os.path.join(os.getcwd(), 'extracted features', session + '.csv'), index_col=[0])
     except FileNotFoundError:
         print_c('File not found, reading_only has been set to <False>\n', 'red', bold=True)
         read_only = False
 
 if not read_only:
-    data_df = read_data(path_session, use_x0=use_x0, param=param)
-    file_name = session + '-x_0.csv' if use_x0 else session + '.csv'
-    data_df.to_csv(os.path.join(os.getcwd(), 'extracted features', file_name))
-    print_c('File saved at {:}'.format(os.path.join(os.getcwd(), 'extracted features', file_name)), bold=True)
+    data_df = read_data(path_session, use_x0=False, param=param)
+    data_df.to_csv(os.path.join(os.getcwd(), 'extracted features', session + '.csv'))
+    print_c('File saved at {:}'.format(os.path.join(os.getcwd(), 'extracted features', session + '.csv')), bold=True)
+
 
 data_df.replace(np.nan, 0, inplace=True)
-test_df = data_df.loc[data_df['subject'].isin(never_use)]
 data_df.drop(data_df[data_df['subject'].isin(never_use)].index, inplace=True)  # remove test subjects
 data_df.reset_index(inplace=True)
 category = data_df.groupby(by='subject')['category'].apply('first').to_numpy()
-category_test = test_df.groupby(by='subject')['category'].apply('first').to_numpy()
+
 
 # Classifier
 clf = LinearDiscriminantAnalysis(solver='svd', shrinkage=None, priors=[0.5, 0.5], n_components=None, store_covariance=False, tol=0.0001, covariance_estimator=None)
@@ -234,117 +224,109 @@ clf = LinearDiscriminantAnalysis(solver='svd', shrinkage=None, priors=[0.5, 0.5]
 # clf = SVC(C=1.0, kernel='linear')
 
 # Classification
-max_acc = [0, 0, 0]
+max_acc = {'validation_acc': np.array([0, 0, 0, 0, 0], dtype=np.float64),
+           'channel': [],
+           'stim': []}
 timed = 0
-
+skf_test = StratifiedKFold(n_splits=27)
+skf_validation = StratifiedKFold(n_splits=5)
 grouped = data_df.groupby(by=['stim', 'feature', 'parsimony'])
-if do_test:
-    grouped_test = test_df.groupby(by=['stim', 'feature', 'parsimony'])
+y = category
 
 select_stim = data_df['stim'].unique() if select_stim is None else select_stim
+select_channel = list(itertools.combinations(channels, k_chan)) if select_channel is None else select_channel
+select_feature = list(itertools.combinations(data_df['feature'].unique(), k_feat)) if select_feature is None else select_feature
+
 for i, stim in enumerate(select_stim):
-    j = 0
-    select_channel = list(itertools.combinations(channels, k_chan)) if select_channel is None else select_channel
-    for channel in select_channel:
-        j += 1
+    for j, channel in enumerate(select_channel):
         channel = list(channel)
-        tic = time.time()
-        k = 0
 
-        select_feature = list(itertools.combinations(data_df['feature'].unique(), k_feat)) if select_feature is None else select_feature
-        for feature in select_feature:
-            k += 1
+        for k, feature in enumerate(select_feature):
+            feature = list(feature)
+            tic = time.time()
+            outer_score_memory = {'train': np.zeros((81, len(parsimony))),
+                                  'validation': np.zeros((81, len(parsimony))),
+                                  'test': []}
+            table = [['Parsimony (%)'], ['Train (%)'], ['Validation (%)'], ['Remark']]
+            idx = list(range(len(y)))
 
-            score_mem, score_mem_val = [], []
+            ## LOO
+            for idx_learning, subj_test in skf_test.split(np.zeros(81), y):
+            ## k-fold
+            # for subj_test in idx:
+            #     idx_learning = idx[:]
+            #     idx_learning.remove(subj_test)  # 80 subjects
+                for m, pars in enumerate(parsimony):
+                    X = select_data(grouped, stim, feature, pars, channel)
+                    inner_score_memory = {'train': [],
+                                          'validation': []}
+                    ## LOO
+                    # for subj_validation in idx_learning:
+                    #     idx_train = idx_learning[:]
+                    #     idx_train.remove(subj_validation)  # 79 subject
+                    ## k-fold
+                    for idx_train, subj_validation in skf_validation.split(X[idx_learning, :], y[idx_learning]):
+                        clf.fit(X[idx_train, :], y[idx_train])
+                        inner_score_memory['train'].append(clf.score(X[idx_train, :], y[idx_train]) * 100)
+                        ## LOO
+                        # inner_score_memory['validation'].append(clf.score(X[[subj_validation], :], y[[subj_validation]]) * 100)
+                        ## k-fold
+                        inner_score_memory['validation'].append(clf.score(X[subj_validation, :], y[subj_validation]) * 100)
 
-            if do_validation:
-                table = [['Parsimony (%)'], ['Train (%)'], ['Validation (%)'], ['Remark']]
-            else:
-                table = [['Parsimony (%)'], ['Train (%)'], ['Remark']]
+                    temp_train = inner_score_memory['train']
+                    temp_validation = inner_score_memory['validation']
+                    outer_score_memory['train'][subj_test, m] = mean(temp_train)
+                    outer_score_memory['validation'][subj_test, m] = mean(temp_validation)
 
-            for pars in parsimony:
-                feature = list(feature)
-                data = select_data(grouped, stim, feature, pars, channel)
-                if do_validation:
-                    all_idx = range(data.shape[0])
-                    train_score_memory, val_score_memory = [], []
-                    for subj_idx in all_idx:
-                        mask = np.ones(category.shape, bool)
-                        mask[subj_idx] = False
-                        clf.fit(data[mask, :], category[mask])
-                        train_score_memory.append(clf.score(data[mask, :], category[mask]))
-                        val_score_memory.append(clf.score(data[[subj_idx], :], category[[subj_idx]]))
-                    train_score = sum(train_score_memory) / len(train_score_memory)
-                    score_mem.append(train_score * 100)
-                    val_score = sum(val_score_memory) / len(val_score_memory)
-                    score_mem_val.append(val_score)
+                best_parsimony = parsimony[np.argmax(outer_score_memory['validation'][subj_test, :])]
+                X = select_data(grouped, stim, feature, best_parsimony, channel)
+                clf.fit(X[idx_learning, :], y[idx_learning])
+                # LOO
+                # outer_score_memory['test'].append(clf.score(X[[subj_test], :], y[[subj_test]]) * 100)
+                # k-fold
+                outer_score_memory['test'].append(clf.score(X[subj_test, :], y[subj_test]) * 100)
 
-                else:
-                    clf.fit(data, category)
-                    train_score = clf.score(data, category)
-                    score_mem.append(train_score * 100)
-
-                if train_score >= highlight_above:
-                    table[0].append('\033[92m {:} \033[0m'.format(int(pars * 100)))
-                    table[1].append('\033[92m {:.1f} \033[0m'.format(train_score * 100))
-                    table[-1].append('\033[92m good \033[0m')
-                    if do_validation:
-                        table[2].append('\033[92m {:.1f} \033[0m'.format(val_score * 100))
+            for m, pars in enumerate(parsimony):
+                train_acc_pars = outer_score_memory['train'][:, m].mean()
+                val_acc_pars = outer_score_memory['validation'][:, m].mean()
+                if outer_score_memory['train'][:, m].mean() >= highlight_above:
+                    table[0].append('\033[92m{:}\033[0m'.format(int(pars * 100)))
+                    table[1].append('\033[92m{:.1f}\033[0m'.format(train_acc_pars))
+                    table[2].append('\033[92m{:.1f}\033[0m'.format(val_acc_pars))
+                    table[-1].append('\033[92m OK\033[0m')
                 else:
                     table[0].append('{:}'.format(int(pars * 100)))
-                    table[1].append('{:.1f}'.format(train_score * 100))
+                    table[1].append('{:.1f}'.format(train_acc_pars))
+                    table[2].append('{:.1f}'.format(val_acc_pars))
                     table[-1].append('-')
-                    if do_validation:
-                        table[2].append('{:.1f}'.format(val_score * 100))
 
-                if train_score >= max_acc[0]:
-                    max_acc[0] = train_score
-                    max_acc[1] = channel
-                    max_acc[2] = stim
-            score_mem = np.array(score_mem)
+                if val_acc_pars > min(max_acc['validation_acc']):
+                    i_min = np.argmin(max_acc['validation_acc'])
+                    max_acc['validation_acc'][i_min] = val_acc_pars
+                    if val_acc_pars >= max(max_acc['validation_acc']):
+                        max_acc['channel'] = channel
+                        max_acc['stim'] = stim
 
-            print_c('Stimuli: {:}     <{:}/{:}>'.format(stim, i + 1, len(select_stim)), 'yellow', bold=True)
-            n_iter_chan = len(select_channel) if isinstance(select_channel, list) else comb(len(channels), k_chan)
-            print_c('\tChannel: {:}   <{:}/{:}>\t{:.1f}s/it'.format(" / ".join(list(channel)), j, n_iter_chan, timed), 'magenta', bold=True)
-            n_iter_feature = len(select_feature) if isinstance(select_feature, list) else comb(len(data_df['feature'].unique()), k_feat)
-            print_c('\t\tFeature: {:<25}     <{:}/{:}>'.format(" / ".join(list(feature)), k, n_iter_feature), 'blue', bold=True)
+            print_c('Stimuli: {:}     <{:}/{:}>'.format(stim, i+1, len(select_stim)), 'yellow', bold=True)
+            print_c('\tChannel: {:}   <{:}/{:}>'.format(" / ".join(list(channel)), j+1, len(select_channel)), 'magenta', bold=True)
+            print_c('\t\tFeature: {:<20}     <{:}/{:}>\t\t{:.1f}s/it'.format(" / ".join(list(feature)), k+1, len(select_feature), timed), 'blue', bold=True)
             print(tabulate(table, headers='firstrow', tablefmt="rounded_outline"))
 
-            if do_test:
-                # best_pars = parsimony[argmax(score_mem_val)] ####
-                best_pars = parsimony[np.argmax(score_mem)]
-                data = select_data(grouped, stim, feature, best_pars, channel)
-                clf.fit(data, category)
-                test_data = select_data(grouped_test, stim, feature, best_pars, channel)
-                test_score = clf.score(test_data, category_test)
-                print('real label', list(category_test))
-                print('predicted ', list(clf.predict(test_data)))
-
-                # # plots
-                # SZ = data[category == 1]
-                # CTL = data[category == 0]
-                # fig, ax = plt.subplots()
-                # # ax.scatter(SZ[:, 0], SZ[:, 1], color='red', alpha=0.5)
-                # # ax.scatter(CTL[:, 0], CTL[:, 1], color='blue', alpha=0.5)
-                #
-                # # Decision boudary
-                # # x1 = np.array([np.min(data[:, 0]), np.max(data[:, 0], axis=0)])
-                # # b, w1, w2 = clf.intercept_[0], clf.coef_[0][0], clf.coef_[0][1]
-                # # y1 = -(b + x1 * w1) / w2
-                # # ax.plot(x1, y1, c='k', linestyle='--', linewidth=1)
-                # ax.set_ylim([-0.002, 0.01])
-                # SZ = test_data[category_test == 1]
-                # CTL = test_data[category_test == 0]
-                # ax.scatter(SZ[:, 0], SZ[:, 1], color='red', alpha=0.5)
-                # ax.scatter(CTL[:, 0], CTL[:, 1], color='blue', alpha=0.5)
-
-                print('\t\tAccuracy: {:.1f} % ± {:.2f} %\n\t\tTest accuracy: {:.1f} %'.format(score_mem.mean(),
-                                                                                              score_mem.std(),
-                                                                                              test_score * 100))
+            test_accuracy = mean(outer_score_memory['test'])
+            if test_accuracy > highlight_above:
+                print('\t\tAccuracy: {:.1f} % ± {:.2f} % \t\t \033[92m Test accuracy: {:.1f} %\033[0m'
+                      .format(outer_score_memory['train'].mean(), outer_score_memory['train'].std(), test_accuracy))
             else:
-                print('\t\tAccuracy: {:.1f} % ± {:.2f} %'.format(score_mem.mean(), score_mem.std()))
-        timed = time.time() - tic
+                print('\t\tAccuracy: {:.1f} % ± {:.2f} % \t\t Test accuracy: {:.1f} %'
+                      .format(outer_score_memory['train'].mean(), outer_score_memory['train'].std(), test_accuracy))
+            timed = time.time() - tic
 
-print('Best accuracy obtained for the session {:} is: {:.1f} % for the stim <{:}> and channel {:} using <{:}>'
-      ' features and <{:}> channels'.format(session, max_acc[0] * 100, max_acc[2], max_acc[1], k_feat, k_chan))
-plt.show()
+print('\nBest validation accuracy obtained for the session {:} is: {:.1f} % for the stim <{:}> and channel {:} using <{:}>'
+      ' features and <{:}> channels\nOther max accuracies'.format(session, max(max_acc['validation_acc']), max_acc['stim'], max_acc['channel'], k_feat, k_chan), [float('{:.1f}'.format(val)) for val in max_acc['validation_acc']])
+
+
+""" features
+# ['energy' 'count_non_zero' 'mean' 'max' 'min' 'pk-pk' 'argmin' 'argmax' 'argmax-argmin' 'sum abs' 'var' 'std'
+#  'kurtosis' 'skew' 'max abs' 'argmax abs' 'count above val' 'count below val' 'count in range' 'count out range'
+#  'count above mean' 'count below mean']
+"""

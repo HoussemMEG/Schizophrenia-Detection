@@ -130,7 +130,7 @@ class DFG:
         self._phi = None
         self._phi_offset = None
         self._phi_scale = None
-        self._merging_weight = kwargs.get('merging_weight', 0.70)
+        self._merging_weight = kwargs.get('merging_weight', 0.55)
         self._scaler = StandardScaler(with_mean=True, with_std=True)
 
         # Signal parameters
@@ -622,12 +622,12 @@ class DFG:
                                          if (x >= 0.0) and (x <= 1.0)])))
             # to select indexes in the neighbor of a specified selection value
             # (selection sparsity parameters should be modified manually in the saving file to work)
-            # if len(selection) == 1:
-            #     n_idx = 10
-            #     selection_ = selection[0]
-            #     print(selection_)
-            #     selection = [selection_ + (i - n_idx) for i in range(3 * n_idx + 1)]
-            #     print(selection)
+            if len(selection) == 1:
+                n_idx = 10
+                selection_ = selection[0]
+                print(selection_)
+                selection = [selection_ + (i - n_idx) for i in range(3 * n_idx + 1)]
+                print(selection)
         else:
             raise ValueError('All selection values must have the same type and be int or float only, given type {:}'
                              .format([type(x) for x in self._selection]))
