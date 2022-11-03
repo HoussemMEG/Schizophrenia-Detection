@@ -255,11 +255,11 @@ class Reader:
 
         # Info object creation
         ch_type = ['eeg'] * len(channels)
-        info = mne.create_info(ch_names=channels, sfreq=s_rate, ch_types=ch_type)
+        info = mne.create_info(ch_names=channels, sfreq=1024, ch_types=ch_type)
         info['description'] = json.dumps(dict(file_name=str(subj), subject_info=str(category), decomposition=None))
 
         # Channel location
-        info.set_montage(montage='standard_1020', match_case=True)
+        info.set_montage(montage='biosemi64', match_case=True)
         # epochs MNE object
         epochs = mne.EpochsArray(data=np.moveaxis(data, 1, 2), info=info, events=events, event_id=event_id,
                                  tmin=-1.5, verbose=reader_verbose)

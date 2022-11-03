@@ -351,3 +351,11 @@ def features(x: np.ndarray, function, **kwargs):
         res[i] = function(x[i, :], **kwargs)
     return np.array(res)
 
+
+def argmax(lst):
+    return lst.index(max(lst))
+
+
+def mean(lst):
+    return sum(lst) / len(lst)
+

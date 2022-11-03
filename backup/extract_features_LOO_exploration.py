@@ -15,19 +15,20 @@ from sklearn.model_selection import StratifiedKFold
 import matplotlib.pyplot as plt
 from sklearn.svm import SVC
 
-path = r"./features"
+path = r"../features"
 param_files = ['DFG_parameters.json', 'preprocessing_parameters.json']
 
 # parameters
 read_only = True
+do_permutation_test = False
 k_feat = 1
 k_chan = 1
 highlight_above = 70
 
 # selection
-select_stim = [None, [1], [2], [3]][0]
-select_channel = [None, [['FCz']]][0]
-select_feature = [None, [['mean', 'var']], [['mean']]][0]
+select_stim = [None, [1], [2], [3]][2]
+select_channel = [None, [['C3']]][-1]
+select_feature = [None, [['mean']]][-1]
 
 session = ['2022-09-30 00;35',  # 0
            '2022-10-09 23;15',  # 1
@@ -39,15 +40,26 @@ session = ['2022-09-30 00;35',  # 0
            '2022-10-16 01;34',  # 7
            '2022-10-17 10;24',  # 8
            '2022-10-18 23;54',  # 9
-           # '2022-10-16 23;01',# 10 version of dataset1 that is focused around 0.15
-           # '2022-10-16 23;05',# 11 version of dataset 8 that has more pars
-           ][6]
+           '2022-10-19 11;48',  # 10
+           '2022-10-19 22;08',  # 11
+           '2022-10-23 17;19',  # 12
+           '2022-10-23 17;34',  # 13
+           '2022-10-23 19;15',  # 14
+           '2022-10-23 19;16',  # 15
+           '2022-10-23 21;43',  # 16
+           '2022-10-23 21;46',  # 17
+           # '2022-10-16 23;01',# 12 version of dataset1 that is focused around 0.15
+           # '2022-10-16 23;05',# 13 version of dataset 8 that has more pars
+           ][16]
 print_c('\nSessions: {:}'.format(session.split('\\')[-1]), 'blue', bold=True)
 
 never_use_SZ = [42, 38, 41, 37, 34, 54, 72, 53, 43, 76, 39, 57, 31, 25, 48]  # category: 1  / 5
 never_use_CTL = [65, 1, 14, 17, 23, 21, 12, 16, 22]  # category: 0  / 3
 never_use = never_use_SZ + never_use_CTL
 never_use = []
+# severe: [5, 6, 17, 30, 31, 33, 37, 51, 57, 66, 78]
+# mild: [10, 16, 23, 32, 47, 72, 74, 79]
+# almost good: [28, 39, 45, 46]
 
 k_feat = k_feat if select_feature is None else len(select_feature[0])
 k_chan = k_chan if select_channel is None else len(select_channel[0])
@@ -56,8 +68,10 @@ k_chan = k_chan if select_channel is None else len(select_channel[0])
 def argmax(lst):
     return lst.index(max(lst))
 
+
 def mean(lst):
     return sum(lst) / len(lst)
+
 
 def read_param(session, param_files):
     # Reading the JSON files
@@ -140,10 +154,22 @@ def read_data(session, use_x0, param):
                 channels = param['channel_picks']
                 parsimony = np.array(
                     param['selection'] if param['selection'] is not None else param.get('selection_alpha', None))
+                n_freq = param['n_freq']
+                n_point = param['n_point']
+                n_features = param['n_features']
 
                 for pars_idx, pars in enumerate(parsimony):
                     # VMS[:, :, pars_idx] shape: (n_channel, n_features) per subject
-                    features_dict = feature_extraction(VMS[:, :, pars_idx])
+                    # mask = np.zeros((VMS[:, :, :].shape[1]), dtype=bool)
+
+                    # time selection
+                    # mask[n_freq * 46:] = True
+                    # frequency selection
+                    # for i in range(n_freq - 1):
+                    #     mask[(n_freq * i + 0):(n_freq * (i+1) - 80)] = True
+                    # features_dict = feature_extraction(VMS[:, mask, pars_idx])
+
+                    features_dict = feature_extraction(VMS[:, :, pars_idx])  # initial
                     for feature_name, features in features_dict.items():
                         subj_dict = {'stim': stim,
                                      'subject': int(subj),
@@ -201,21 +227,25 @@ parsimony = np.array(param['selection'] if param['selection'] is not None else p
 
 if read_only:
     try:
-        data_df = pd.read_csv(os.path.join(os.getcwd(), 'extracted features', session + '.csv'), index_col=[0])
+        data_df = pd.read_csv(os.path.join(os.getcwd(), '../extracted features', session + '.csv'), index_col=[0])
     except FileNotFoundError:
         print_c('File not found, reading_only has been set to <False>\n', 'red', bold=True)
         read_only = False
 
 if not read_only:
     data_df = read_data(path_session, use_x0=False, param=param)
-    data_df.to_csv(os.path.join(os.getcwd(), 'extracted features', session + '.csv'))
-    print_c('File saved at {:}'.format(os.path.join(os.getcwd(), 'extracted features', session + '.csv')), bold=True)
+    data_df.to_csv(os.path.join(os.getcwd(), '../extracted features', session + '.csv'))
+    print_c('File saved at {:}'.format(os.path.join(os.getcwd(), '../extracted features', session + '.csv')), bold=True)
 
 
 data_df.replace(np.nan, 0, inplace=True)
 data_df.drop(data_df[data_df['subject'].isin(never_use)].index, inplace=True)  # remove test subjects
 data_df.reset_index(inplace=True)
 category = data_df.groupby(by='subject')['category'].apply('first').to_numpy()
+print('category before shuffle: {:}'.format(category))
+if do_permutation_test:
+    np.random.shuffle(category)
+    print('category after shuffle: {:}'.format(category))
 
 
 # Classifier
@@ -226,16 +256,17 @@ clf = LinearDiscriminantAnalysis(solver='svd', shrinkage=None, priors=[0.5, 0.5]
 # Classification
 max_acc = {'validation_acc': np.array([0, 0, 0, 0, 0], dtype=np.float64),
            'channel': [],
-           'stim': []}
+           'stim': [],
+           'predicted_category': np.zeros((5, 81 - len(never_use)))}
 timed = 0
 skf_test = StratifiedKFold(n_splits=27)
 skf_validation = StratifiedKFold(n_splits=5)
 grouped = data_df.groupby(by=['stim', 'feature', 'parsimony'])
 y = category
-
 select_stim = data_df['stim'].unique() if select_stim is None else select_stim
 select_channel = list(itertools.combinations(channels, k_chan)) if select_channel is None else select_channel
 select_feature = list(itertools.combinations(data_df['feature'].unique(), k_feat)) if select_feature is None else select_feature
+
 
 for i, stim in enumerate(select_stim):
     for j, channel in enumerate(select_channel):
@@ -244,15 +275,16 @@ for i, stim in enumerate(select_stim):
         for k, feature in enumerate(select_feature):
             feature = list(feature)
             tic = time.time()
-            outer_score_memory = {'train': np.zeros((81, len(parsimony))),
-                                  'validation': np.zeros((81, len(parsimony))),
-                                  'test': []}
+            outer_score_memory = {'train': np.zeros((81 - len(never_use), len(parsimony))),
+                                  'validation': np.zeros((81 - len(never_use), len(parsimony))),
+                                  'test': [],
+                                  'test_category': np.zeros((81 - len(never_use),))}
             table = [['Parsimony (%)'], ['Train (%)'], ['Validation (%)'], ['Remark']]
             idx = list(range(len(y)))
 
-            ## LOO
-            for idx_learning, subj_test in skf_test.split(np.zeros(81), y):
             ## k-fold
+            for idx_learning, subj_test in skf_test.split(np.zeros(81 - len(never_use)), y):
+            ## LOO
             # for subj_test in idx:
             #     idx_learning = idx[:]
             #     idx_learning.remove(subj_test)  # 80 subjects
@@ -285,7 +317,10 @@ for i, stim in enumerate(select_stim):
                 # outer_score_memory['test'].append(clf.score(X[[subj_test], :], y[[subj_test]]) * 100)
                 # k-fold
                 outer_score_memory['test'].append(clf.score(X[subj_test, :], y[subj_test]) * 100)
+                # display vote
+                outer_score_memory['test_category'][subj_test] = clf.predict(X[subj_test, :])  # display vote
 
+            done_once = False
             for m, pars in enumerate(parsimony):
                 train_acc_pars = outer_score_memory['train'][:, m].mean()
                 val_acc_pars = outer_score_memory['validation'][:, m].mean()
@@ -300,9 +335,12 @@ for i, stim in enumerate(select_stim):
                     table[2].append('{:.1f}'.format(val_acc_pars))
                     table[-1].append('-')
 
-                if val_acc_pars > min(max_acc['validation_acc']):
-                    i_min = np.argmin(max_acc['validation_acc'])
+                min_val = min(max_acc['validation_acc'][:]) if not done_once else max_acc['validation_acc'][i_min]
+                if val_acc_pars > min_val:
+                    i_min = np.argmin(max_acc['validation_acc']) if not done_once else i_min
+                    done_once = True
                     max_acc['validation_acc'][i_min] = val_acc_pars
+                    max_acc['predicted_category'][i_min] = outer_score_memory['test_category']
                     if val_acc_pars >= max(max_acc['validation_acc']):
                         max_acc['channel'] = channel
                         max_acc['stim'] = stim
@@ -321,12 +359,16 @@ for i, stim in enumerate(select_stim):
                       .format(outer_score_memory['train'].mean(), outer_score_memory['train'].std(), test_accuracy))
             timed = time.time() - tic
 
+            # print(outer_score_memory['test_category']) # display vote
 print('\nBest validation accuracy obtained for the session {:} is: {:.1f} % for the stim <{:}> and channel {:} using <{:}>'
       ' features and <{:}> channels\nOther max accuracies'.format(session, max(max_acc['validation_acc']), max_acc['stim'], max_acc['channel'], k_feat, k_chan), [float('{:.1f}'.format(val)) for val in max_acc['validation_acc']])
 
+voted = np.sum(max_acc['predicted_category'], axis=0)
+voted = np.array([1 if x > 2.5 else 0 for x in voted])
+print('\t\tVoted accuracy {:.1f} %'.format(100 - np.logical_xor(voted, category).mean() * 100))
 
 """ features
-# ['energy' 'count_non_zero' 'mean' 'max' 'min' 'pk-pk' 'argmin' 'argmax' 'argmax-argmin' 'sum abs' 'var' 'std'
-#  'kurtosis' 'skew' 'max abs' 'argmax abs' 'count above val' 'count below val' 'count in range' 'count out range'
-#  'count above mean' 'count below mean']
+['energy' 'count_non_zero' 'mean' 'max' 'min' 'pk-pk' 'argmin' 'argmax' 'argmax-argmin' 'sum abs' 'var' 'std'
+ 'kurtosis' 'skew' 'max abs' 'argmax abs' 'count above val' 'count below val' 'count in range' 'count out range'
+ 'count above mean' 'count below mean']
 """

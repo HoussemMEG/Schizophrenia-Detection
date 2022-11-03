@@ -521,6 +521,7 @@ class DFG:
 
             for path_idx in range(self.coef_path[target_idx].shape[1]):
                 show = self._show if self.coef_path[target_idx].shape[1] < 15 else False
+                show = True
                 Plotter.plot_control(x=self.coef_path[target_idx][:, path_idx][np.newaxis, :],
                                      y=y[:, target_idx], y_hat=self.y_hat[target_idx][:, path_idx],
                                      freq=self._freq, cmap='blue_red',  # 'blue_red', 'black_white'

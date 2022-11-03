@@ -15,15 +15,13 @@ import reader
 
 
 # Read the csv file containing the ERP data and the
-df = pd.read_csv(r'C:\Users\meghnouh\PycharmProjects\Schizophrenia Detection\all_chans_ERP.csv', index_col=[0])
-print(df.columns, '\n', df.dtypes)
-
+df = pd.read_csv(r"C:\Mon disque D\Gipsa\6- Schizophrenia diagnosis\dataset\dataset 1\ERPdata.csv")
 demographic = pd.read_csv("C:/Mon disque D/Gipsa/6- Schizophrenia diagnosis/dataset/dataset 1/demographic.csv")
 diagnosis_dict = dict(zip(demographic.subject, demographic[" group"]))  # 1 SZ 0 CTL
 channels = list(df.columns[2:-1])
-channels = ['Fz']
+# channels = ['C3']
 
-
+# r'C:\Users\meghnouh\PycharmProjects\Schizophrenia Detection\all_chans_ERP.csv'
 subjects = df['subject'].unique()  # [[random.randint(0, 81)]]
 print("Diagnosis dict\n", diagnosis_dict)
 print("\n Channels:\n", channels)
@@ -37,12 +35,15 @@ preprocessing.preprocessing_verbose = True
 stim_types = [['1', '2', '3'],  # 0
               ['1'],            # 1
               ['2'],            # 2
-              ['3']             # 3
-              ][-1]
-features_container = dict([(stim, {}) for stim in stim_types])
+              ['3'],            # 3
+              ][0]
+new_stims = [['1', '2'], ['1', '3'], ['3', '2']]
+gg = list(map(lambda x: '-'.join(x), new_stims))
+print(gg)
+features_container = dict(zip(map(lambda x: '-'.join(x), new_stims), [{}]*3))
 
 # Parameters
-fs = 1024
+fs = [1024, 512, 256, 128][-1]
 n_channel = len(channels)
 
 
@@ -51,57 +52,62 @@ my_reader = reader.Reader()
 
 preprocess = preprocessing.PreProcessing(save=False, save_precision='double', overwrite=True,
                                          shift=False, t_shift=0.0,
-                                         sampling_freq=None,
-                                         filter=[1, 35], n_jobs=-1,
+                                         sampling_freq=fs,
+                                         filter=[None, 35], n_jobs=-1,
                                          rejection_type=None, reject_t_min=-0.1, reject_t_max=0.6,
                                          ref_channel=None,
-                                         crop=True, crop_t_min=0.0, crop_t_max=0.5, include_t_max=True,
+                                         crop=True, crop_t_min=-0.1, crop_t_max=0.5, include_t_max=True,
                                          baseline=[None, None])
 
 feature_gen = DFG(method='LARS',
                   f_sampling=fs,
-                  version=1, omit=None,  # 0
+                  version=1, disable=None,  # 0
                   normalize=True,
-                  model_freq=list(np.linspace(1, 40, 40, endpoint=False)),  # upper limit should always be filtering + 5 Hz (due to filter)
+                  model_freq=[35], #list(np.linspace(0.1, 35, 5, endpoint=False)),  # list(np.concatenate((np.linspace(0.1, 15, 25), np.linspace(15, 50, 15, endpoint=False)))),
                   damping=None,  # (under-damped 0.008 / over-damped 0.09)
-                  alpha=8e-4,  # 2e-3
-                  merging_weight=0.55,  # 0.50 old value
+                  alpha=0.002,  # 8e-4, 0.01  #  best visually : 0.005
+                  merging_weight=0.5,
                   fit_path=True, ols_fit=True,
                   fast=True,
-                  selection=np.arange(0.01, 1.01, 0.01),
+                  selection=np.arange(0.05, 1.05, 0.05),  # [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
                   selection_alpha=None,
-                  plot=False,
-                  show=True, fig_name="fig name", save_fig=False)
+                  plot=False, show=True, fig_name="fig name", save_fig=False)
 
 # Plotting class of the EEG signal
-plotter = Plotter(disable_plot=True,             # if True disable all plots
-                  plot_data=True,                # plot all the data (epochs / evoked)
-                  plot_psd=False,                # plot power spectral density (epochs)
-                  plot_sensors=False,            # sensor location plot (epochs / evoked)
+plotter = Plotter(disable_plot=True,  # if True disable all plots
+                  plot_data=True,  # plot all the data (epochs / evoked)
+                  plot_psd=False,  # plot power spectral density (epochs)
+                  plot_sensors=False,  # sensor location plot (epochs / evoked)
                   plot_image=False, split=True,  # plot epochs image and ERP (epochs)
-                  plot_psd_topomap=False,        # plot power spectral density and topomap (epochs)
-                  plot_topo_image=False,         # plot epochs image on topomap (epochs)
-                  plot_topo_map=False,           # plot ERPs on topomap (evoked)
-                  plot_evoked_joint=False,       # plot ERPs data and the topomap on peaks time (evoked)
-                  show=True,                     # to whether show the plotted figures or to save them directly
+                  plot_psd_topomap=False,  # plot power spectral density and topomap (epochs)
+                  plot_topo_image=False,  # plot epochs image on topomap (epochs)
+                  plot_topo_map=False,  # plot ERPs on topomap (evoked)
+                  plot_evoked_joint=False,  # plot ERPs data and the topomap on peaks time (evoked)
+                  show=True,  # to whether show the plotted figures or to save them directly
                   save_fig=False,
-                  save_path=os.path.join(os.getcwd(), 'figures'))
+                  save_path=os.path.join(os.getcwd(), '../figures'))
 
 # Session creation
 date = datetime.now().strftime("%Y-%m-%d %H;%M")
-session_folder = os.path.join(os.getcwd(), 'features', date)
+session_folder = os.path.join(os.getcwd(), '../features', date)
 backup_folder = os.path.join(os.getcwd(), 'features backup', date)
 
 # Main
+# for i, subj in enumerate([subjects[np.random.randint(0, 81)]]):
 for i, subj in enumerate(subjects):
     utils.print_c('\nReading file: {:}/{:}'.format(i+1, len(subjects)), bold=True)
     group = diagnosis_dict[subj]
     data_ = np.empty((len(stim_types), 3072, n_channel))
 
     # data reading from CSV
-    for stim_i, stim in enumerate(stim_types):
-        filt = (df['subject'] == subj) & (df['condition'] == int(stim))  # & (t_min * 1000 <= df['time_ms']) & (df['time_ms'] < t_max * 1000)
-        data_[stim_i, :, :] = df.loc[filt, channels]
+    for stim_i, _ in enumerate(stim_types):
+        stim = new_stims[stim_i]
+        filt = (df['subject'] == subj) & (df['condition'] == int(stim[0]))
+        temp_0 = df.loc[filt, channels].to_numpy()
+        filt = (df['subject'] == subj) & (df['condition'] == int(stim[1]))
+        temp_1 = df.loc[filt, channels].to_numpy()
+        data_[stim_i, :, :] = temp_0 - temp_1
+
     # data parsing and pre-processing
     data = my_reader.data_to_mne(data_, s_rate=fs, channels=channels, stim_types=stim_types, subj=subj, category=group)
     plotter.plot(data)
@@ -114,6 +120,7 @@ for i, subj in enumerate(subjects):
     for j, stim in enumerate(stim_types):
         utils.print_c('\tStim type: <{:}>  {:}/{:}'.format(stim, j+1, len(stim_types)), 'green')
         features, x0 = feature_gen.generate(data_[j].T * 1e6)
+        # print(np.count_nonzero(features))
         features, x0 = utils.compress(features), utils.ndarray_to_list(x0)
         plt.show()
 
@@ -121,9 +128,9 @@ for i, subj in enumerate(subjects):
         temp = {str(subj): {'features': features,
                             'x0': x0,
                             'subject_info': group}}
-        features_container[stim].update(temp)
+        features_container[gg[j]].update(temp)
 
-
+# plt.show(block=True)
 utils.save_args(features_container, path=session_folder, save_name='generated_features', verbose=True)
 utils.save_args(preprocess._saved_args, verbose=True, path=session_folder, save_name='preprocessing_parameters')
 utils.save_args({**feature_gen.parameters, **{'channel_picks': channels}, **{'data_case': 'evoked'}},

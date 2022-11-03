@@ -11,7 +11,7 @@ from sklearn.svm import SVC
 
 from utils import print_c
 
-path = os.path.join(os.getcwd(), 'extracted features')
+path = os.path.join(os.getcwd(), '../extracted features')
 
 
 class Classifier:

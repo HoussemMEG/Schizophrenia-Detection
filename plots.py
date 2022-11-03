@@ -167,9 +167,9 @@ class Plotter:
         :return: /
         """
         if self.save_fig:
-            path = os.path.join(self.save_path, save_name + '.png')
+            path = os.path.join(self.save_path, save_name + '.svg')
             if os.path.exists(path):
-                path = os.path.join(self.save_path, save_name + '(1).png')
+                path = os.path.join(self.save_path, save_name + '(1).svg')
             fig.savefig(path, bbox_inches='tight')
             print("Figure saved at : {:}".format(path))
         if not self.show:
@@ -316,9 +316,9 @@ class Plotter:
                                           ch_type='eeg', title='Electrodes location', show_names=True,
                                           pointsize=15,
                                           ch_groups=None,  # None / 'position'
-                                          to_sphere=False,  # change to True / False
+                                          to_sphere=True,  # change to True / False
                                           axes=ax, block=False, show=False,
-                                          sphere=None, verbose=None)
+                                          sphere='auto', verbose=None)
             save_name = 'sensor location'
             self.save(fig=fig, save_name=save_name)
 

@@ -15,7 +15,7 @@ from tabulate import tabulate
 import matplotlib.pyplot as plt
 from sklearn.svm import SVC
 
-path = r"./features"
+path = r"../features"
 param_files = ['DFG_parameters.json', 'preprocessing_parameters.json']
 
 # parameters
@@ -29,15 +29,15 @@ select_stim = [None,
                [2],
                [3]][2]
 select_channel = [None,
-                  [['FCz']]][-1]
+                  [['FCz']]][0]
 
 select_feature = [None,
-                  [['mean', 'var']]][-1]
+                  [['mean', 'var']]][0]
 # ['energy' 'count_non_zero' 'mean' 'max' 'min' 'pk-pk' 'argmin' 'argmax' 'argmax-argmin' 'sum abs' 'var' 'std'
 #  'kurtosis' 'skew' 'max abs' 'argmax abs' 'count above val' 'count below val' 'count in range' 'count out range'
 #  'count above mean' 'count below mean']
 
-k_feat = 2 if select_feature is None else len(select_feature[0])
+k_feat = 1 if select_feature is None else len(select_feature[0])
 k_chan = 1 if select_channel is None else len(select_channel[0])
 highlight_above = 0.75
 
@@ -51,12 +51,14 @@ session = ['2022-09-30 00;35',  # 0
            '2022-10-16 01;34',  # 7
            '2022-10-16 23;01',  # 8 version of dataset1 that is focused around 0.15
            '2022-10-16 23;05',  # 9 version of dataset 8 that has more pars
-           ][8]
+           '2022-10-26 11;52',
+           '2022-11-03 15;14'
+           ][-1]
 
 never_use_SZ = [42, 38, 41, 37, 34, 54, 72, 53, 43, 76, 39, 57, 31, 25, 48]  # category: 1  / 5
 never_use_CTL = [65, 1, 14, 17, 23, 21, 12, 16, 22]  # category: 0  / 3
 never_use = never_use_SZ + never_use_CTL
-never_use = [1]
+never_use = [5, 17, 23, 30, 33, 57, 78]
 
 print_c('\nSessions: {:}'.format(session.split('\\')[-1]), 'blue', bold=True)
 
@@ -208,9 +210,9 @@ parsimony = np.array(param['selection'] if param['selection'] is not None else p
 if read_only:
     try:
         if use_x0:
-            data_df = pd.read_csv(os.path.join(os.getcwd(), 'extracted features', session + '-x_0.csv'), index_col=[0])
+            data_df = pd.read_csv(os.path.join(os.getcwd(), '../extracted features', session + '-x_0.csv'), index_col=[0])
         else:
-            data_df = pd.read_csv(os.path.join(os.getcwd(), 'extracted features', session + '.csv'), index_col=[0])
+            data_df = pd.read_csv(os.path.join(os.getcwd(), '../extracted features', session + '.csv'), index_col=[0])
     except FileNotFoundError:
         print_c('File not found, reading_only has been set to <False>\n', 'red', bold=True)
         read_only = False
@@ -218,8 +220,8 @@ if read_only:
 if not read_only:
     data_df = read_data(path_session, use_x0=use_x0, param=param)
     file_name = session + '-x_0.csv' if use_x0 else session + '.csv'
-    data_df.to_csv(os.path.join(os.getcwd(), 'extracted features', file_name))
-    print_c('File saved at {:}'.format(os.path.join(os.getcwd(), 'extracted features', file_name)), bold=True)
+    data_df.to_csv(os.path.join(os.getcwd(), '../extracted features', file_name))
+    print_c('File saved at {:}'.format(os.path.join(os.getcwd(), '../extracted features', file_name)), bold=True)
 
 data_df.replace(np.nan, 0, inplace=True)
 test_df = data_df.loc[data_df['subject'].isin(never_use)]
@@ -230,6 +232,7 @@ category_test = test_df.groupby(by='subject')['category'].apply('first').to_nump
 
 # Classifier
 clf = LinearDiscriminantAnalysis(solver='svd', shrinkage=None, priors=[0.5, 0.5], n_components=None, store_covariance=False, tol=0.0001, covariance_estimator=None)
+# clf = LinearDiscriminantAnalysis(solver='svd', shrinkage=None, priors=None, n_components=None, store_covariance=False, tol=0.0001, covariance_estimator=None)
 # clf = QuadraticDiscriminantAnalysis(priors=[0.5, 0.5], reg_param=0.0)
 # clf = SVC(C=1.0, kernel='linear')
 
@@ -285,11 +288,11 @@ for i, stim in enumerate(select_stim):
                     score_mem.append(train_score * 100)
 
                 if train_score >= highlight_above:
-                    table[0].append('\033[92m {:} \033[0m'.format(int(pars * 100)))
-                    table[1].append('\033[92m {:.1f} \033[0m'.format(train_score * 100))
-                    table[-1].append('\033[92m good \033[0m')
+                    table[0].append('\033[92m{:}\033[0m'.format(int(pars * 100)))
+                    table[1].append('\033[92m{:.1f}\033[0m'.format(train_score * 100))
+                    table[-1].append('\033[92mok\033[0m')
                     if do_validation:
-                        table[2].append('\033[92m {:.1f} \033[0m'.format(val_score * 100))
+                        table[2].append('\033[92mok\033[0m'.format(val_score * 100))
                 else:
                     table[0].append('{:}'.format(int(pars * 100)))
                     table[1].append('{:.1f}'.format(train_score * 100))

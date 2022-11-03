@@ -40,7 +40,7 @@ stim_types = [['1', '2', '3'],  # 0
 features_container = dict([(stim, {}) for stim in stim_types])
 
 # Parameters
-fs = 1024
+fs = [1024, 512, 256, 128][-1]
 n_channel = len(channels)
 
 
@@ -49,7 +49,7 @@ my_reader = reader.Reader()
 
 preprocess = preprocessing.PreProcessing(save=False, save_precision='double', overwrite=True,
                                          shift=False, t_shift=0.0,
-                                         sampling_freq=None,
+                                         sampling_freq=fs,
                                          filter=[None, 50], n_jobs=-1,
                                          rejection_type=None, reject_t_min=-0.1, reject_t_max=0.6,
                                          ref_channel=None,
@@ -60,12 +60,13 @@ feature_gen = DFG(method='LARS',
                   f_sampling=fs,
                   version=1, disable=None,  # 0
                   normalize=True,
-                  model_freq=list(np.linspace(0.1, 50, 40, endpoint=False)),
+                  model_freq=list(np.linspace(0.1, 50, 40, endpoint=False)),  # list(np.concatenate((np.linspace(0.1, 15, 25), np.linspace(15, 50, 15, endpoint=False)))),
                   damping=None,  # (under-damped 0.008 / over-damped 0.09)
-                  alpha=8e-4,  # 8e-4  # for ICA removal do this 1e-5
+                  alpha=0.001,  # 8e-4, 0.01  #  best visually : 0.005
+                  merging_weight=0.5,
                   fit_path=True, ols_fit=True,
                   fast=True,
-                  selection=[0.25],
+                  selection=np.arange(0.71, 0.91, 0.01),  # np.arange(0.05, 1.05, 0.05),  # [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], #
                   selection_alpha=None,
                   plot=False, show=True, fig_name="fig name", save_fig=False)
 
@@ -89,6 +90,7 @@ session_folder = os.path.join(os.getcwd(), 'features', date)
 backup_folder = os.path.join(os.getcwd(), 'features backup', date)
 
 # Main
+# for i, subj in enumerate([subjects[45]]):
 for i, subj in enumerate(subjects):
     utils.print_c('\nReading file: {:}/{:}'.format(i+1, len(subjects)), bold=True)
     group = diagnosis_dict[subj]
@@ -110,6 +112,7 @@ for i, subj in enumerate(subjects):
     for j, stim in enumerate(stim_types):
         utils.print_c('\tStim type: <{:}>  {:}/{:}'.format(stim, j+1, len(stim_types)), 'green')
         features, x0 = feature_gen.generate(data_[j].T * 1e6)
+        # print(np.count_nonzero(features))
         features, x0 = utils.compress(features), utils.ndarray_to_list(x0)
         plt.show()
 
@@ -119,7 +122,7 @@ for i, subj in enumerate(subjects):
                             'subject_info': group}}
         features_container[stim].update(temp)
 
-
+# plt.show(block=True)
 utils.save_args(features_container, path=session_folder, save_name='generated_features', verbose=True)
 utils.save_args(preprocess._saved_args, verbose=True, path=session_folder, save_name='preprocessing_parameters')
 utils.save_args({**feature_gen.parameters, **{'channel_picks': channels}, **{'data_case': 'evoked'}},
