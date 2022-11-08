@@ -21,8 +21,8 @@ param_files = ['DFG_parameters.json', 'preprocessing_parameters.json']
 # parameters
 use_x0 = False
 read_only = True
-do_validation = False
-do_test = False and do_validation #####
+do_validation = True
+do_test = False  # and do_validation #####
 
 select_stim = [None,
                [1],
@@ -32,7 +32,7 @@ select_channel = [None,
                   [['FCz']]][0]
 
 select_feature = [None,
-                  [['mean', 'var']]][0]
+                  [['mean']]][-1]
 # ['energy' 'count_non_zero' 'mean' 'max' 'min' 'pk-pk' 'argmin' 'argmax' 'argmax-argmin' 'sum abs' 'var' 'std'
 #  'kurtosis' 'skew' 'max abs' 'argmax abs' 'count above val' 'count below val' 'count in range' 'count out range'
 #  'count above mean' 'count below mean']
@@ -52,13 +52,14 @@ session = ['2022-09-30 00;35',  # 0
            '2022-10-16 23;01',  # 8 version of dataset1 that is focused around 0.15
            '2022-10-16 23;05',  # 9 version of dataset 8 that has more pars
            '2022-10-26 11;52',
-           '2022-11-03 15;14'
+           '2022-11-03 15;14',
+           '2022-11-04 10;45'
            ][-1]
 
 never_use_SZ = [42, 38, 41, 37, 34, 54, 72, 53, 43, 76, 39, 57, 31, 25, 48]  # category: 1  / 5
 never_use_CTL = [65, 1, 14, 17, 23, 21, 12, 16, 22]  # category: 0  / 3
 never_use = never_use_SZ + never_use_CTL
-never_use = [5, 17, 23, 30, 33, 57, 78]
+never_use = []
 
 print_c('\nSessions: {:}'.format(session.split('\\')[-1]), 'blue', bold=True)
 
@@ -224,11 +225,13 @@ if not read_only:
     print_c('File saved at {:}'.format(os.path.join(os.getcwd(), '../extracted features', file_name)), bold=True)
 
 data_df.replace(np.nan, 0, inplace=True)
-test_df = data_df.loc[data_df['subject'].isin(never_use)]
+if do_test:
+    test_df = data_df.loc[data_df['subject'].isin(never_use)]
 data_df.drop(data_df[data_df['subject'].isin(never_use)].index, inplace=True)  # remove test subjects
 data_df.reset_index(inplace=True)
 category = data_df.groupby(by='subject')['category'].apply('first').to_numpy()
-category_test = test_df.groupby(by='subject')['category'].apply('first').to_numpy()
+if do_test:
+    category_test = test_df.groupby(by='subject')['category'].apply('first').to_numpy()
 
 # Classifier
 clf = LinearDiscriminantAnalysis(solver='svd', shrinkage=None, priors=[0.5, 0.5], n_components=None, store_covariance=False, tol=0.0001, covariance_estimator=None)
@@ -292,7 +295,7 @@ for i, stim in enumerate(select_stim):
                     table[1].append('\033[92m{:.1f}\033[0m'.format(train_score * 100))
                     table[-1].append('\033[92mok\033[0m')
                     if do_validation:
-                        table[2].append('\033[92mok\033[0m'.format(val_score * 100))
+                        table[2].append('\033[92m{:.1f}\033[0m'.format(val_score * 100))
                 else:
                     table[0].append('{:}'.format(int(pars * 100)))
                     table[1].append('{:.1f}'.format(train_score * 100))

@@ -6,6 +6,8 @@ import json
 
 import pandas as pd
 import numpy as np
+from sklearn.svm import LinearSVC
+
 from utils import print_c, execution_time, decompress, mean
 from tqdm import tqdm
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
@@ -28,6 +30,9 @@ k_stim = 1
 highlight_above = 70
 testing_split = ['LOO', 'k-fold'][1]
 validation_split = ['LOO', 'k-fold'][1]
+k_fold = 5
+k_fold_test = 27  # 2, 5, 27  /  37 for bad data removed
+shuffle = False
 
 # selection
 select_stim = [None, [1], [2], [3]][0]
@@ -39,7 +44,7 @@ k_chan = k_chan if select_channel is None else len(select_channel[0])
 # Classifier
 clf = LinearDiscriminantAnalysis(solver='svd', shrinkage=None, priors=[0.5, 0.5], covariance_estimator=None)
 # clf = QuadraticDiscriminantAnalysis(priors=[0.5, 0.5], reg_param=0.0)
-# clf = SVC(C=1.0, kernel='linear')
+# clf = LinearSVC(tol=1e-3, class_weight='balanced', max_iter=1e5)
 
 
 session = ['2022-10-26 10;46',  # 0
@@ -51,11 +56,11 @@ session = ['2022-10-26 10;46',  # 0
            '2022-10-26 18;02',  # 6, same as 4 with all the channels and stims
            '2022-10-31 11;16',  # 7, same as 4 with a zoom on 75
            '2022-10-31 12;08',  # 8, same as 4 with a zoom on 80
-           '2022-11-02 14;40',  # permutation test on this
-           '2022-10-23 21;43',  # original with all stims and channels of 4
-           '2022-11-03 15;13',  # same as 4 but focus on 80 with 10
-           '2022-11-03 15;14',  # same as 4 but focus on 80 with 20
-           '2022-09-30 00;35',
+           '2022-11-02 14;40',  # 9 permutation test on this
+           '2022-10-23 21;43',  # 10 original with all stims and channels of 4
+           '2022-11-03 15;13',  # 11 same as 4 but focus on 80 with 10
+           '2022-11-03 15;14',  # 12 same as 4 but focus on 80 with 20
+           '2022-09-30 00;35',  # 13
            #####
            '2022-09-30 00;35',  # 14
            '2022-10-09 23;15',  # 15
@@ -75,7 +80,10 @@ session = ['2022-10-26 10;46',  # 0
            '2022-10-23 19;16',  # 29
            '2022-10-23 21;43',  # 30
            '2022-10-23 21;46',  # 31
-           ][14]
+           ##
+           '2022-11-04 10;45',  # 1% increment
+           '2022-11-04 10;46',  # 2% increment
+           ][9]
 
 never_use = []
 print('Never use', never_use)
@@ -267,7 +275,6 @@ data_df.drop(data_df[data_df['subject'].isin(never_use)].index, inplace=True)  #
 data_df.reset_index(inplace=True)
 category = data_df.groupby(by='subject')['category'].apply('first').to_numpy()
 
-shuffle = False
 if testing_split == 'LOO':
     f_test = LeaveOneOut()
 elif testing_split == 'k-fold':
@@ -275,15 +282,24 @@ elif testing_split == 'k-fold':
         f_test = StratifiedKFold(n_splits=37, shuffle=shuffle)
     else:
         f_test = StratifiedKFold(n_splits=27, shuffle=shuffle)
-    # f_test = StratifiedKFold(n_splits=2)
+    if k_fold_test == 2:
+        print('k_fold_test 2')
+        f_test = StratifiedKFold(n_splits=2, shuffle=shuffle)
+    if k_fold_test == 5:
+        print('k_fold_test 5')
+        f_test = StratifiedKFold(n_splits=5, shuffle=shuffle)
+
 
 if validation_split == 'LOO':
     f_validation = LeaveOneOut()
 elif validation_split == 'k-fold':
-    f_validation = StratifiedKFold(n_splits=5, shuffle=shuffle)
+    f_validation = StratifiedKFold(n_splits=k_fold, shuffle=shuffle)
 
 test_p_value = []
-n_repeat = 1000 if do_permutation_test else 1
+test_val = []
+learning_val = []
+validation_val = []
+n_repeat = 100000 if (do_permutation_test or shuffle) else 1
 for _ in range(n_repeat):
     if do_permutation_test:
         print_c(r'/!\ Permutation test label permutation enabled.', 'red', bold=True)
@@ -300,6 +316,7 @@ for _ in range(n_repeat):
 
     grouped = data_df.groupby(by=['stim', 'feature', 'parsimony'])
     y = category
+    # print(y)
     # select_stim = list(itertools.combinations(data_df['stim'].unique(), k_stim)) if k_stim > 1 else select_stim
     select_stim = data_df['stim'].unique() if select_stim is None else select_stim
     select_channel = list(itertools.combinations(channels, k_chan)) if select_channel is None else select_channel
@@ -308,28 +325,27 @@ for _ in range(n_repeat):
     for i, stim in enumerate(select_stim):
         if k_stim > 1:
             stim = list(stim)
-
+        # parsimony = [0.80]
         for j, channel in enumerate(select_channel):
             channel = list(channel)
-            # parsimony = [0.80]
             for k, feature in enumerate(select_feature):
                 feature = list(feature)
                 tic = time.time()
 
                 outer_score_mem = reset_outer_eval()
                 table = [['Parsimony (%)'], ['Train (%)'], ['Validation (%)'], ['Remark']]
-                gg = 0
+                counter_subj = 0
                 for idx_learning, subj_test in f_test.split(np.zeros(81 - len(never_use)), y):
-                    gg += 1
+                    counter_subj += 1
                     if testing_split == 'LOO':
-                        print(gg)
+                        print(counter_subj)
+                    gg = list(f_validation.split(idx_learning, y[idx_learning]))
                     for m, pars in enumerate(parsimony):
                         X = select_data(grouped, stim, feature, pars, channel)
-
                         # For each test subject out and level of parsimony perform the validation and save it in inner-mem
                         inner_score_mem = {'train': [], 'validation': []}
                         counter = -1
-                        for temp_idx_train, temp_subj_validation in f_validation.split(idx_learning, y[idx_learning]):
+                        for temp_idx_train, temp_subj_validation in gg:
                             counter += 1
                             idx_train = idx_learning[temp_idx_train]
                             subj_validation = idx_learning[temp_subj_validation]
@@ -343,6 +359,7 @@ for _ in range(n_repeat):
                     best_pars_idx = np.argwhere(outer_score_mem['validation'][subj_test[0], :] == np.amax(outer_score_mem['validation'][subj_test[0], :]))[-1][-1]
                     # best_parsimony = parsimony[np.argmax(outer_score_mem['validation'][subj_test[0], :])]  # 0 as they should have all the same accuracy
                     best_parsimony = parsimony[best_pars_idx]  # 0 as they should have all the same accuracy
+                    # print(best_parsimony)
                     X = select_data(grouped, stim, feature, best_parsimony, channel)
                     clf.fit(X[idx_learning, :], y[idx_learning])  # use learning set to learn instead of training only
                     outer_score_mem['learning'].append(clf.score(X[idx_learning, :], y[idx_learning]) * 100)  # learning score
@@ -401,12 +418,20 @@ for _ in range(n_repeat):
     print('\nBest validation accuracy obtained for the session {:} is: {:.1f} % for the stim <{:}> and channel {:} using <{:}>'
           ' features and <{:}> channels\n\t5 best validation accuracies: '.format(session, max(exp_eval['validation_acc']), exp_eval['stim'], exp_eval['channel'], k_feat, k_chan), [float('{:.1f}'.format(val)) for val in exp_eval['validation_acc']])
 
+    # print(list(exp_eval['predicted_category'][0, :]))
     voted = np.sum(exp_eval['predicted_category'], axis=0)
     voted = np.array([1 if x > 2.5 else 0 for x in voted])
     print('\t\tVoted accuracy {:.1f} %'.format(100 - np.logical_xor(voted, category).mean() * 100))
     test_p_value.append(float('{:.1f}'.format(exp_eval['test'])))
     print_c('\nCompute p val {:}\n'.format(test_p_value), 'cyan', bold=True)
 
+    # # print just to test the 50 % split
+    # learning_val.append(float('{:.1f}'.format(mean(outer_score_mem['learning']))))
+    # validation_val.append(float('{:.1f}'.format(mean(outer_score_mem['selected validation']))))
+    # test_val.append(float('{:.1f}'.format(exp_eval['test'])))
+    # print_c('\nLearning   {:}'.format(learning_val), 'cyan', bold=True)
+    # print_c('Validation {:}'.format(validation_val), 'cyan', bold=True)
+    # print_c('Testing    {:}\n'.format(test_val), 'cyan', bold=True)
 
 """ features
 ['energy' 'count_non_zero' 'mean' 'max' 'min' 'pk-pk' 'argmin' 'argmax' 'argmax-argmin' 'sum abs' 'var' 'std'

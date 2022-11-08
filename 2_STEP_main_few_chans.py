@@ -19,7 +19,7 @@ df = pd.read_csv(r"C:\Mon disque D\Gipsa\6- Schizophrenia diagnosis\dataset\data
 demographic = pd.read_csv("C:/Mon disque D/Gipsa/6- Schizophrenia diagnosis/dataset/dataset 1/demographic.csv")
 diagnosis_dict = dict(zip(demographic.subject, demographic[" group"]))  # 1 SZ 0 CTL
 channels = list(df.columns[2:-1])
-channels = ['C3']
+channels = ['FC4']
 
 # r'C:\Users\meghnouh\PycharmProjects\Schizophrenia Detection\all_chans_ERP.csv'
 subjects = df['subject'].unique()  # [[random.randint(0, 81)]]
@@ -40,7 +40,7 @@ stim_types = [['1', '2', '3'],  # 0
 features_container = dict([(stim, {}) for stim in stim_types])
 
 # Parameters
-fs = [1024, 512, 256, 128][-1]
+fs = [1024, 512, 256, 128][0]
 n_channel = len(channels)
 
 
@@ -63,10 +63,10 @@ feature_gen = DFG(method='LARS',
                   model_freq=list(np.linspace(0.1, 50, 40, endpoint=False)),  # list(np.concatenate((np.linspace(0.1, 15, 25), np.linspace(15, 50, 15, endpoint=False)))),
                   damping=None,  # (under-damped 0.008 / over-damped 0.09)
                   alpha=0.001,  # 8e-4, 0.01  #  best visually : 0.005
-                  merging_weight=0.5,
+                  merging_weight=0.55,
                   fit_path=True, ols_fit=True,
                   fast=True,
-                  selection=np.arange(0.71, 0.91, 0.01),  # np.arange(0.05, 1.05, 0.05),  # [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], #
+                  selection=np.arange(0.01, 1.01, 0.01),  # np.arange(0.05, 1.05, 0.05),  # [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], #
                   selection_alpha=None,
                   plot=False, show=True, fig_name="fig name", save_fig=False)
 

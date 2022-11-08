@@ -1,0 +1,35 @@
+import os.path
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
+import matplotlib
+import matplotlib.pyplot as plt
+
+matplotlib.use('QT5agg')
+
+y_true = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+          1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1,
+          1, 1, 1, 1, 1, 1, 1]
+
+
+y_pred = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0,
+          1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+          1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
+          1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+
+cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
+fig = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['PD', 'CTL'])
+fig.plot(cmap=plt.cm.Blues, colorbar=False)
+
+fig.ax_.xaxis.set_label_position('top')
+fig.ax_.xaxis.tick_top()
+
+print(fig.confusion_matrix)
+gg: plt.Figure = fig.figure_
+gg.tight_layout()
+gg.savefig(os.path.join(os.getcwd(), '..', 'figures', 'confusion_matrix.svg'))
+
+plt.show()
