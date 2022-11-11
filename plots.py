@@ -746,6 +746,9 @@ class Plotter:
         n_point = y.shape[0]
         if ax is None or fig is None:
             fig, ax = plt.subplots(figsize=[12, 8])
+        # x = np.arange(-0.3, 0.6-1/1024, 1/1024)
+        # ax.plot(x, y, label='Y_true')
+        # ax.plot(x, y_hat, 'C3', label='Y_pred')
         ax.plot(np.arange(0, n_point), y, label='Y_true')
         ax.plot(np.arange(0, n_point), y_hat, 'C3', label='Y_pred')
         # ax.set_ylim(ax.get_ylim()[::-1])  # to invert the y axis
@@ -755,6 +758,7 @@ class Plotter:
         ax.yaxis.grid(True, which='major', linestyle='-', linewidth=0.4)
         ax.legend()
         ax.set_xlabel("Time [index]")
+        # ax.set_xlabel("Time [ms]")
         ax.set_ylabel("Amplitude [$\mu$V]")
         fig.tight_layout()
         if save:

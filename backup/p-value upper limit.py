@@ -7,18 +7,18 @@ clf = LinearDiscriminantAnalysis(solver='svd', shrinkage=None, priors=[0.5, 0.5]
 
 n = 81
 balance = 49 / 81
-# balance = 0.1
-repeat = 20 * 64 * 30
-# repeat = 10000
+n_repeat = 38400  # 20 * 64 * 30
+n_dim = 5
 
-print(balance)
 max_val = 0
-for i in tqdm(range(repeat)):
-    SZ = np.random.uniform(-1, 1, size=(int(balance * n)))
-    y_SZ = np.ones_like(SZ)
-    CTL = np.random.uniform(-1, 1, size=(int((1 - balance) * n)))
-    y_CTL = np.zeros_like(CTL)
-    X = np.concatenate((SZ, CTL))[:, np.newaxis]
+for i in tqdm(range(n_repeat)):
+    SZ = np.random.uniform(-1, 1, size=(int(balance * n), n_dim))
+    y_SZ = np.ones((len(SZ),))
+    CTL = np.random.uniform(-1, 1, size=(int((1 - balance) * n), n_dim))
+    y_CTL = np.zeros((len(CTL),))
+    X = np.concatenate((SZ, CTL))
+    if X.ndim < 2:
+        X = X[:, np.newaxis]
     y = np.concatenate((y_SZ, y_CTL))
     clf.fit(X, y)
     score = clf.score(X, y) * 100

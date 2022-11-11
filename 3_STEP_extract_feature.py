@@ -28,23 +28,23 @@ k_feat = 1
 k_chan = 1
 k_stim = 1
 highlight_above = 70
-testing_split = ['LOO', 'k-fold'][1]
-validation_split = ['LOO', 'k-fold'][1]
+testing_split = ['LOO', 'k-fold'][0]
+validation_split = ['LOO', 'k-fold'][0]
 k_fold = 5
-k_fold_test = 27  # 2, 5, 27  /  37 for bad data removed
+k_fold_test = 2  # 2, 5, 27  /  37 for bad data removed
 shuffle = False
 
 # selection
-select_stim = [None, [1], [2], [3]][0]
-select_channel = [None, [['C3']]][0]
-select_feature = [None, [['mean']]][0]
+select_stim = [None, [1], [2], [3]][2]
+select_channel = [None, [['C3']]][-1]
+select_feature = [None, [['mean']]][-1]
 k_feat = k_feat if select_feature is None else len(select_feature[0])
 k_chan = k_chan if select_channel is None else len(select_channel[0])
 
 # Classifier
 clf = LinearDiscriminantAnalysis(solver='svd', shrinkage=None, priors=[0.5, 0.5], covariance_estimator=None)
 # clf = QuadraticDiscriminantAnalysis(priors=[0.5, 0.5], reg_param=0.0)
-# clf = LinearSVC(tol=1e-3, class_weight='balanced', max_iter=1e5)
+# clf = LinearSVC(tol=1e-8, class_weight='balanced', max_iter=1e5)
 
 
 session = ['2022-10-26 10;46',  # 0
@@ -83,7 +83,9 @@ session = ['2022-10-26 10;46',  # 0
            ##
            '2022-11-04 10;45',  # 1% increment
            '2022-11-04 10;46',  # 2% increment
-           ][9]
+           '2022-11-10 23;50',
+           '2022-11-11 01;01'
+           ][-1]
 
 never_use = []
 print('Never use', never_use)
@@ -422,16 +424,16 @@ for _ in range(n_repeat):
     voted = np.sum(exp_eval['predicted_category'], axis=0)
     voted = np.array([1 if x > 2.5 else 0 for x in voted])
     print('\t\tVoted accuracy {:.1f} %'.format(100 - np.logical_xor(voted, category).mean() * 100))
-    test_p_value.append(float('{:.1f}'.format(exp_eval['test'])))
-    print_c('\nCompute p val {:}\n'.format(test_p_value), 'cyan', bold=True)
+    # test_p_value.append(float('{:.1f}'.format(exp_eval['test'])))
+    # print_c('\nCompute p val {:}\n'.format(test_p_value), 'cyan', bold=True)
 
     # # print just to test the 50 % split
-    # learning_val.append(float('{:.1f}'.format(mean(outer_score_mem['learning']))))
-    # validation_val.append(float('{:.1f}'.format(mean(outer_score_mem['selected validation']))))
-    # test_val.append(float('{:.1f}'.format(exp_eval['test'])))
-    # print_c('\nLearning   {:}'.format(learning_val), 'cyan', bold=True)
-    # print_c('Validation {:}'.format(validation_val), 'cyan', bold=True)
-    # print_c('Testing    {:}\n'.format(test_val), 'cyan', bold=True)
+    learning_val.append(float('{:.1f}'.format(mean(outer_score_mem['learning']))))
+    validation_val.append(float('{:.1f}'.format(mean(outer_score_mem['selected validation']))))
+    test_val.append(float('{:.1f}'.format(exp_eval['test'])))
+    print_c('\nLearning   {:}'.format(learning_val), 'cyan', bold=True)
+    print_c('Validation {:}'.format(validation_val), 'cyan', bold=True)
+    print_c('Testing    {:}\n'.format(test_val), 'cyan', bold=True)
 
 """ features
 ['energy' 'count_non_zero' 'mean' 'max' 'min' 'pk-pk' 'argmin' 'argmax' 'argmax-argmin' 'sum abs' 'var' 'std'

@@ -629,9 +629,11 @@ class DFG:
                 print(selection_)
                 selection = [selection_ + (i - n_idx) for i in range(3 * n_idx + 1)]
                 print(selection)
+
         else:
             raise ValueError('All selection values must have the same type and be int or float only, given type {:}'
                              .format([type(x) for x in self._selection]))
+        selection = [1]
         return selection
 
     def _select(self):
