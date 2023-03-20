@@ -1,0 +1,62 @@
+We suppose that you will have a specific working directory, and you will put all the project files on the same folder
+ that we will name "./" throughout this guide.
+An asterisk "*" is placed in front of procedures that you have to do.
+
+I) Folder creation:
+* Create the following folders in the working directory "./":
+    1- data
+    2- extracted features
+    3- features
+    4- figures
+
+./ (working directory)
+├── all code (*.py)
+|
+├── extracted features
+├── features
+├── figures
+└── data
+    ├── columnLabels.csv
+    ├── demographic.csv
+    ├── ERPdata.csv
+    ├── mergedTrialData.csv
+    ├── time.csv
+    |
+    ├── 1.csv
+    |   └── 1.csv
+    ├── 2.csv
+    |   └── 2.csv
+    |            .
+    |            .
+    |            .
+    └── 81.csv
+        └── 81.csv
+
+
+
+
+II) Download:
+* Download the data that is present in: 
+	1- first part: https://www.kaggle.com/datasets/broach/button-tone-sz
+	2- second part: https://www.kaggle.com/datasets/broach/buttontonesz2
+
+* Once the data are downloaded they should be extracted and placed in a sub-folder named <data> on your working directory.
+    /!\ the folders names should be respected as they are case sensitive.
+
+
+III) Requirements and install:
+	numpy==1.23.3
+	scikit-learn==1.1.2
+	mne==1.1.1
+	termcolor==2.0.1
+	matplotlib==3.6.0
+	seaborn==0.12.1
+	scipy==1.9.1
+	pandas==1.5.0
+	tqdm==4.64.1
+	tabulate==0.9.0
+	PyQt5==5.15.9
+
+
+Once these steps are completed, you can procede on running 1_Step ... until the end.
+If any problem you can contact the author: houssem.meghnoudj@gmail.com
